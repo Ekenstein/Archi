@@ -1,0 +1,5 @@
+source https://www.nuget.org/api/v2
+
+github Ekenstein/Fileicsh
+nuget Microsoft.EntityFrameworkCore 2.2.3
+github Ekenstein/Monadicsh

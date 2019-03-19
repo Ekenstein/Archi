@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\paket-files\Ekenstein\Fileicsh\Fileicsh.Abstraction\Fileicsh.Abstraction.csproj" />
+    <ProjectReference Include="..\paket-files\Ekenstein\Monadicsh\Monadicsh\Monadicsh.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Update="ArchiResources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>ArchiResources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Update="ArchiResources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>ArchiResources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <Import Project="..\.paket\Paket.Restore.targets" />
+</Project>
