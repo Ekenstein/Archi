@@ -40,12 +40,15 @@ namespace Archi.Core
         /// </summary>
         protected IList<IArchiveValidator<TArchive>> Validators { get; } = new List<IArchiveValidator<TArchive>>();
 
+        protected virtual CancellationToken CancellationToken => CancellationToken.None;
+
         public ArchiErrorDescriber ErrorDescriber { get; }
 
         public ArchiveManager(IArchiveStore<TArchive> store, 
             IStorage storage, 
             ArchiveOptions options, 
             IEnumerable<IArchiveValidator<TArchive>> validators,
+            IServiceProvider serviceProvider,
             ArchiErrorDescriber errorDescriber = null)
         {
             Store = store ?? throw new ArgumentNullException(nameof(store));
@@ -114,7 +117,7 @@ namespace Archi.Core
         public virtual Task<Maybe<TArchive>> FindByIdAsync(string id)
         {
             ThrowIfDisposed();
-            return Store.FindByIdAsync(id);
+            return Store.FindByIdAsync(id, CancellationToken);
         }
 
         /// <summary>
@@ -158,7 +161,7 @@ namespace Archi.Core
                 return result;
             }
 
-            return await Store.CreateAsync(archive);
+            return await Store.CreateAsync(archive, CancellationToken);
         }
 
         /// <summary>
@@ -183,7 +186,7 @@ namespace Archi.Core
                 return result;
             }
 
-            return await Store.UpdateAsync(archive);
+            return await Store.UpdateAsync(archive, CancellationToken);
         }
 
         /// <summary>
@@ -207,7 +210,7 @@ namespace Archi.Core
                 return result;
             }
 
-            return await Store.DeleteAsync(archive);
+            return await Store.DeleteAsync(archive, CancellationToken);
         }
 
         /// <summary>
@@ -250,6 +253,36 @@ namespace Archi.Core
         }
 
         /// <summary>
+        /// Returns a file associated with the given <paramref name="archive"/> that
+        /// has the given <paramref name="fileName"/>.
+        /// </summary>
+        /// <param name="archive">The archive the file is associated with.</param>
+        /// <param name="fileName">The name of the file to retrieve.</param>
+        /// <returns>
+        /// A <see cref="Task{TResult}"/> representing the asynchronous operation, containing
+        /// a <see cref="Maybe{T}"/> that will either contain the file corresponding to the given <paramref name="fileName"/>
+        /// or <see cref="Maybe{T}.Nothing"/>.
+        /// </returns>
+        public virtual async Task<Maybe<IFile>> GetFileByNameAsync(TArchive archive, string fileName)
+        {
+            ThrowIfDisposed();
+            if (archive == null)
+            {
+                throw new ArgumentNullException(nameof(archive));
+            }
+
+            var store = GetFileStore();
+            var fileInfo = await store.GetFileByNameAsync(archive, fileName, CancellationToken);
+            if (fileInfo.IsNothing)
+            {
+                return Maybe<IFile>.Nothing;
+            }
+
+            var storage = await GetArchiveStorageAsync(archive);
+            return Maybe.Create(await storage.GetFileAsync(fileInfo.Value, Options.StorageOptions.Tag, CancellationToken));
+        }
+
+        /// <summary>
         /// Adds the given <paramref name="file"/> to the given <paramref name="archive"/>.
         /// </summary>
         /// <param name="archive">The archive to create the file for.</param>
@@ -276,7 +309,7 @@ namespace Archi.Core
 
             await CreateArchiveFileAsync(archive, renamedFile);
 
-            return await store.AddFileAsync(archive, renamedFile.ToFileInfo());
+            return await store.AddFileAsync(archive, renamedFile.ToFileInfo(), CancellationToken);
         }
 
         /// <summary>
@@ -300,7 +333,7 @@ namespace Archi.Core
             }
 
             var store = GetTagStore();
-            return store.GetTagsAsync(archive);
+            return store.GetTagsAsync(archive, CancellationToken);
         }
 
         /// <summary>
@@ -326,7 +359,7 @@ namespace Archi.Core
             }
 
             var store = GetTagStore();
-            return store.HasTagAsync(archive, tag);
+            return store.HasTagAsync(archive, tag, CancellationToken);
         }
 
         /// <summary>
@@ -363,12 +396,12 @@ namespace Archi.Core
                 return ErrorDescriber.TagInvalid(tag);
             }
 
-            if (await store.HasTagAsync(archive, tag))
+            if (await store.HasTagAsync(archive, tag, CancellationToken))
             {
                 return ErrorDescriber.TagAlreadyExist(tag);
             }
 
-            return await store.AddTagAsync(archive, tag);
+            return await store.AddTagAsync(archive, tag, CancellationToken);
         }
 
         /// <summary>
@@ -398,7 +431,7 @@ namespace Archi.Core
                 return ErrorDescriber.TagDoesNotExist(tag);
             }
 
-            return await store.RemoveTagAsync(archive, tag);
+            return await store.RemoveTagAsync(archive, tag, CancellationToken);
         }
 
         private async Task<Result> ValidateAsync(TArchive archive)
@@ -414,17 +447,17 @@ namespace Archi.Core
 
         private async Task CreateArchiveFileAsync(TArchive archive, IFile file)
         {
-            var id = await Store.GetIdAsync(archive);
-            var storage = Storage.Prefix(id);
-            await storage.CreateFileAsync(file, Options.StorageOptions.Tag);
+            var storage = await GetArchiveStorageAsync(archive);
+            await storage.CreateFileAsync(file, Options.StorageOptions.Tag, CancellationToken);
         }
 
         private async Task<IFile> GetArchiveFileAsync(TArchive archive, IFileInfo file, CancellationToken cancellationToken)
         {
-            var id = await Store.GetIdAsync(archive, cancellationToken);
-            var storage = Storage.Prefix(id);
+            var storage = await GetArchiveStorageAsync(archive);
             return await storage.GetFileAsync(file, Options.StorageOptions.Tag, cancellationToken);
         }
+
+        private async Task<IStorage> GetArchiveStorageAsync(TArchive archive) => Storage.Prefix(await GetIdAsync(archive));
 
         private IArchiveFileStore<TArchive> GetFileStore() => Maybe
             .Create(Store as IArchiveFileStore<TArchive>)

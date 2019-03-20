@@ -27,6 +27,20 @@ namespace Archi.Core
         Task<IList<IFileInfo>> GetFilesAsync(TArchive archive, CancellationToken cancellationToken = default(CancellationToken));
 
         /// <summary>
+        /// Returns a file associated with the given <paramref name="archive"/> that
+        /// has the given <paramref name="fileName"/>.
+        /// </summary>
+        /// <param name="archive">The archive the file is associated with.</param>
+        /// <param name="fileName">The name of the file to retrieve.</param>
+        /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
+        /// <returns>
+        /// A <see cref="Task{TResult}"/> representing the asynchronous operation, containing
+        /// a <see cref="Maybe{T}"/> that will either contain the file corresponding to the given <paramref name="fileName"/>
+        /// or <see cref="Maybe{T}.Nothing"/>.
+        /// </returns>
+        Task<Maybe<IFileInfo>> GetFileByNameAsync(TArchive archive, string fileName, CancellationToken cancellationToken = default(CancellationToken));
+
+        /// <summary>
         /// Adds the given <paramref name="file"/> to the the given <paramref name="archive"/>.
         /// </summary>
         /// <param name="archive">The archive to create the file for.</param>
