@@ -14,6 +14,10 @@ namespace Archi.Models.EF
         public DbSet<File> Files { get; set; }
         public DbSet<Tag> Tags { get; set; }
 
+        public ArchiContext(DbContextOptions<ArchiContext> contextOptions) : base(contextOptions)
+        {
+        }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -37,7 +41,7 @@ namespace Archi.Models.EF
 
             modelBuilder.Entity<ArchiveTag>(b =>
             {
-                b.HasKey(p => new {p.Tag, p.Archive.Id});
+                b.HasKey(p => new {p.TagId, p.ArchiveId});
                 b.HasOne(p => p.Archive).WithMany(p => p.Tags).HasForeignKey(p => p.ArchiveId);
                 b.HasOne(p => p.Tag).WithMany().HasForeignKey(p => p.TagId);
             });

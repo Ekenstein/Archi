@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Monadicsh.Extensions;
 
 namespace Archi.Models.EF
 {
@@ -396,6 +397,29 @@ namespace Archi.Models.EF
             }
 
             return Result.Success;
+        }
+
+        public async Task<Maybe<IFileInfo>> GetFileByNameAsync(Archive archive, string fileName, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            ThrowIfDisposed();
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (archive == null)
+            {
+                throw new ArgumentNullException(nameof(archive));
+            }
+
+            var file = await Context
+                .Set<ArchiveFile>()
+                .Where(f => f.ArchiveId == archive.Id)
+                .Select(f => f.File)
+                .Where(f => f.FileName == fileName)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            return Maybe
+                .Create(file)
+                .Coalesce(f => new FileInfo(f.FileName, f.ContentType))
+                .Cast<IFileInfo>();
         }
     }
 }
