@@ -61,6 +61,24 @@ namespace Archi.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Failed to create the file &apos;{0}&apos;..
+        /// </summary>
+        internal static string FailedToCreateFile {
+            get {
+                return ResourceManager.GetString("FailedToCreateFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to remove the file &apos;{0}&apos;..
+        /// </summary>
+        internal static string FailedToRemoveFile {
+            get {
+                return ResourceManager.GetString("FailedToRemoveFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The store does not implement IArchiveFileStore&lt;TArchive&gt;..
         /// </summary>
         internal static string StoreNotIArchiveFileStore {

@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using Fileicsh.Abstraction;
 using Monadicsh;
 
 namespace Archi.Core
@@ -58,6 +59,34 @@ namespace Archi.Core
         {
             Code = nameof(TagInvalid),
             Description = string.Format(CultureInfo.CurrentCulture, ArchiResources.TagInvalid, tag)
+        };
+
+        /// <summary>
+        /// Returns an <see cref="Error"/> indicating that the file with
+        /// the <paramref name="fileName"/> couldn't be successfully created.
+        /// </summary>
+        /// <param name="fileName">The name of the file that failed to created.</param>
+        /// <returns>
+        /// An <see cref="Error"/> describing that the file with the <paramref name="fileName"/> failed to be created.
+        /// </returns>
+        public virtual Error FailedToCreateFile(string fileName) => new Error
+        {
+            Code = nameof(FailedToCreateFile),
+            Description = string.Format(CultureInfo.CurrentCulture, ArchiResources.FailedToCreateFile, fileName)
+        };
+
+        /// <summary>
+        /// Returns an <see cref="Error"/> indicating that the file with the
+        /// <paramref name="fileName"/> couldn't be successfully removed.
+        /// </summary>
+        /// <param name="fileName">The name of the file that failed to be removed.</param>
+        /// <returns>
+        /// An <see cref="Error"/> describing that the file with the <paramref name="fileName"/> failed to be removed.
+        /// </returns>
+        public virtual Error FailedToRemoveFile(string fileName) => new Error
+        {
+            Code = nameof(FailedToRemoveFile),
+            Description = string.Format(CultureInfo.CurrentCulture, ArchiResources.FailedToRemoveFile, fileName)
         };
     }
 }

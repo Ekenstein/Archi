@@ -38,16 +38,16 @@ namespace Archi.Core
         Task<bool> HasTagAsync(TArchive archive, string tag, CancellationToken cancellationToken = default(CancellationToken));
 
         /// <summary>
-        /// Adds the <paramref name="tag"/> to the <paramref name="archive"/>.
+        /// Adds the <paramref name="tags"/> to the <paramref name="archive"/>.
         /// </summary>
         /// <param name="archive">The archive to add the tag to.</param>
-        /// <param name="tag">The tag to be added to the archive.</param>
+        /// <param name="tags">The tags to be added to the archive.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>
         /// A <see cref="Task{TResult}"/> representing the asynchronous operation, containing
         /// the <see cref="Result"/> of the operation.
         /// </returns>
-        Task<Result> AddTagAsync(TArchive archive, string tag, CancellationToken cancellationToken = default(CancellationToken));
+        Task<Result> AddTagsAsync(TArchive archive, IEnumerable<string> tag, CancellationToken cancellationToken = default(CancellationToken));
 
         /// <summary>
         /// Removes the <paramref name="tag"/> from the <paramref name="archive"/>.

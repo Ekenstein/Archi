@@ -172,7 +172,7 @@ namespace Archi.Core
         /// A <see cref="Task{TResult}"/> that represents the asynchronous operation, containing the <see cref="Result"/> of the update operation.
         /// </returns>
         /// <exception cref="ArgumentNullException">If <paramref name="archive"/> is null.</exception>
-        public virtual async Task<Result> UpdateAsync(TArchive archive)
+        public virtual Task<Result> UpdateAsync(TArchive archive)
         {
             ThrowIfDisposed();
             if (archive == null)
@@ -180,13 +180,7 @@ namespace Archi.Core
                 throw new ArgumentNullException(nameof(archive));
             }
 
-            var result = await ValidateAsync(archive);
-            if (!result.Succeeded)
-            {
-                return result;
-            }
-
-            return await Store.UpdateAsync(archive, CancellationToken);
+            return UpdateArchiveAsync(archive);
         }
 
         /// <summary>
@@ -196,7 +190,7 @@ namespace Archi.Core
         /// <returns>
         /// A <see cref="Task{TResult}"/> that represents the asynchronous operation, containing the <see cref="Result"/> of the delete operation.
         /// </returns>
-        public virtual async Task<Result> DeleteAsync(TArchive archive)
+        public virtual Task<Result> DeleteAsync(TArchive archive)
         {
             ThrowIfDisposed();
             if (archive == null)
@@ -204,13 +198,7 @@ namespace Archi.Core
                 throw new ArgumentNullException(nameof(archive));
             }
 
-            var result = await ValidateAsync(archive);
-            if (!result.Succeeded)
-            {
-                return result;
-            }
-
-            return await Store.DeleteAsync(archive, CancellationToken);
+            return Store.DeleteAsync(archive, CancellationToken);
         }
 
         /// <summary>
@@ -291,6 +279,8 @@ namespace Archi.Core
         /// A <see cref="Task{TResult}"/> containing the <see cref="Result"/> of operation.
         /// </returns>
         /// <exception cref="ArgumentNullException">If <paramref name="archive"/> or <paramref name="file"/> is null.</exception>
+        /// <exception cref="ObjectDisposedException">If the manager has been disposed.</exception>
+        /// <exception cref="NotSupportedException">If the archive doesn't support files.</exception>
         public virtual async Task<Result> AddFileAsync(TArchive archive, IFile file)
         {
             ThrowIfDisposed();
@@ -307,9 +297,59 @@ namespace Archi.Core
             var store = GetFileStore();
             var renamedFile = file.Rename(Guid.NewGuid().ToString(), true);
 
-            await CreateArchiveFileAsync(archive, renamedFile);
+            var result = await store.AddFileAsync(archive, renamedFile, CancellationToken);
+            if (!result.Succeeded)
+            {
+                return result;
+            }
 
-            return await store.AddFileAsync(archive, renamedFile.ToFileInfo(), CancellationToken);
+            if (!await CreateArchiveFileAsync(archive, renamedFile))
+            {
+                return ErrorDescriber.FailedToCreateFile(file.FileName);
+            }
+
+            return await UpdateArchiveAsync(archive);
+        }
+
+        /// <summary>
+        /// Removes the given <paramref name="file"/> from the given <paramref name="archive"/>.
+        /// </summary>
+        /// <param name="archive">The archive to remove the file from.</param>
+        /// <param name="file">The file to be removed from the archive.</param>
+        /// <returns>
+        /// A <see cref="Task{TResult}"/> representing the asynchronous operation, containing
+        /// the <see cref="Result"/> of the operation.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">If <paramref name="archive"/> or <paramref name="file"/> is null.</exception>
+        /// <exception cref="ObjectDisposedException">If the manager has been disposed.</exception>
+        /// <exception cref="NotSupportedException">If the archive doesn't support files.</exception>
+        public virtual async Task<Result> RemoveFileAsync(TArchive archive, IFileInfo file)
+        {
+            ThrowIfDisposed();
+            var store = GetFileStore();
+
+            if (archive == null)
+            {
+                throw new ArgumentNullException(nameof(archive));
+            }
+
+            if (file == null)
+            {
+                throw new ArgumentNullException(nameof(file));
+            }
+
+            var result = await store.RemoveFileAsync(archive, file, CancellationToken);
+            if (!result.Succeeded)
+            {
+                return result;
+            }
+
+            if (!await RemoveArchiveFileAsync(archive, file))
+            {
+                return ErrorDescriber.FailedToRemoveFile(file.FileName);
+            }
+
+            return await UpdateArchiveAsync(archive);
         }
 
         /// <summary>
@@ -363,7 +403,7 @@ namespace Archi.Core
         }
 
         /// <summary>
-        /// Adds the <paramref name="tag"/> to the <paramref name="archive"/> iff
+        /// Adds the given <paramref name="tags"/> to the <paramref name="archive"/> iff
         /// the <paramref name="tag"/> isn't already associated with the <paramref name="archive"/>.
         /// </summary>
         /// <param name="archive">The archive to add the tag to.</param>
@@ -372,10 +412,10 @@ namespace Archi.Core
         /// A <see cref="Task{TResult}"/> representing the asynchronous operation, containing
         /// the <see cref="Result"/> of the operation.
         /// </returns>
-        /// <exception cref="ArgumentNullException">If <paramref name="archive"/> is null.</exception>
+        /// <exception cref="ArgumentNullException">If <paramref name="archive"/> or <paramref name="tags"/> is null.</exception>
         /// <exception cref="ObjectDisposedException">If the manager is disposed.</exception>
         /// <exception cref="NotSupportedException">If the archive does not support tags.</exception>
-        public virtual async Task<Result> AddTagAsync(TArchive archive, string tag)
+        public virtual async Task<Result> AddTagsAsync(TArchive archive, IEnumerable<string> tags)
         {
             ThrowIfDisposed();
             if (archive == null)
@@ -385,23 +425,18 @@ namespace Archi.Core
 
             var store = GetTagStore();
 
-            if (string.IsNullOrWhiteSpace(tag))
+            if (tags == null)
             {
-                return ErrorDescriber.TagMustNotBeNullOrEmpty;
+                throw new ArgumentNullException(nameof(tags));
+            }
+            
+            var result = await store.AddTagsAsync(archive, tags, CancellationToken);
+            if (!result.Succeeded)
+            {
+                return result;
             }
 
-            if (!string.IsNullOrWhiteSpace(Options.TagOptions.AllowedCharacters) &&
-                tag.Any(c => !Options.TagOptions.AllowedCharacters.Contains(c)))
-            {
-                return ErrorDescriber.TagInvalid(tag);
-            }
-
-            if (await store.HasTagAsync(archive, tag, CancellationToken))
-            {
-                return ErrorDescriber.TagAlreadyExist(tag);
-            }
-
-            return await store.AddTagAsync(archive, tag, CancellationToken);
+            return await UpdateArchiveAsync(archive);
         }
 
         /// <summary>
@@ -431,7 +466,13 @@ namespace Archi.Core
                 return ErrorDescriber.TagDoesNotExist(tag);
             }
 
-            return await store.RemoveTagAsync(archive, tag, CancellationToken);
+            var result = await store.RemoveTagAsync(archive, tag, CancellationToken);
+            if (!result.Succeeded)
+            {
+                return result;
+            }
+
+            return await UpdateArchiveAsync(archive);
         }
 
         private async Task<Result> ValidateAsync(TArchive archive)
@@ -445,10 +486,27 @@ namespace Archi.Core
             return result;
         }
 
-        private async Task CreateArchiveFileAsync(TArchive archive, IFile file)
+        private async Task<Result> UpdateArchiveAsync(TArchive archive)
+        {
+            var result = await ValidateAsync(archive);
+            if (!result.Succeeded)
+            {
+                return result;
+            }
+
+            return await Store.UpdateAsync(archive, CancellationToken);
+        }
+
+        private async Task<bool> RemoveArchiveFileAsync(TArchive archive, IFileInfo file)
         {
             var storage = await GetArchiveStorageAsync(archive);
-            await storage.CreateFileAsync(file, Options.StorageOptions.Tag, CancellationToken);
+            return await storage.DeleteFileAsync(file, Options.StorageOptions.Tag, CancellationToken);
+        }
+
+        private async Task<bool> CreateArchiveFileAsync(TArchive archive, IFile file)
+        {
+            var storage = await GetArchiveStorageAsync(archive);
+            return await storage.CreateFileAsync(file, Options.StorageOptions.Tag, CancellationToken);
         }
 
         private async Task<IFile> GetArchiveFileAsync(TArchive archive, IFileInfo file, CancellationToken cancellationToken)

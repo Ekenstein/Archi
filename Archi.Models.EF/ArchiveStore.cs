@@ -26,13 +26,35 @@ namespace Archi.Models.EF
         public DbContext Context { get; }
         public ArchiErrorDescriber ErrorDescriber { get; }
 
+        /// <summary>
+        /// Gets or sets a flag indicating whether changes should be persisted after
+        /// CreateAsync, UpdateAsync or DeleteAsync is called.
+        /// </summary>
+        /// <value>True indicates that the changes should be persistance, otherwise false.</value>
+        public bool AutoSaveChanges { get; set; } = true;
+
         public ArchiveStore(DbContext context, ArchiErrorDescriber errorDescriber = null)
         {
             Context = context ?? throw new ArgumentNullException(nameof(context));
             ErrorDescriber = errorDescriber ?? new ArchiErrorDescriber();
         }
 
-        public IQueryable<Archive> Archives => Context.Set<Archive>();
+        /// <summary>
+        /// An <see cref="IQueryable{T}"/> collection of zero or more <see cref="Archive"/>s.
+        /// </summary>
+        /// <exception cref="ObjectDisposedException">If the store has been disposed.</exception>
+        public IQueryable<Archive> Archives
+        {
+            get
+            {
+                ThrowIfDisposed();
+                return Context.Set<Archive>();
+            }
+        }
+
+        private Task SaveChangesAsync(CancellationToken cancellationToken) => AutoSaveChanges
+            ? Context.SaveChangesAsync(cancellationToken)
+            : Task.CompletedTask;
 
         /// <summary>
         /// Saves the given <paramref name="archive"/> to the underlying <see cref="DbContext"/>.
@@ -55,7 +77,7 @@ namespace Archi.Models.EF
             }
 
             Context.Add(archive);
-            await Context.SaveChangesAsync(cancellationToken);
+            await SaveChangesAsync(cancellationToken);
             return Result.Success;
         }
 
@@ -120,7 +142,7 @@ namespace Archi.Models.EF
             }
 
             Context.Remove(archive);
-            await Context.SaveChangesAsync(cancellationToken);
+            await SaveChangesAsync(cancellationToken);
             return Result.Success;
         }
 
@@ -229,7 +251,8 @@ namespace Archi.Models.EF
 
             Context.Attach(archive);
             Context.Update(archive);
-            await Context.SaveChangesAsync(cancellationToken);
+
+            await SaveChangesAsync(cancellationToken);
 
             return Result.Success;
         }
@@ -326,19 +349,19 @@ namespace Archi.Models.EF
         }
 
         /// <summary>
-        /// Adds the given <paramref name="tag"/> to the given <paramref name="archive"/>.
+        /// Adds the given <paramref name="tags"/> to the given <paramref name="archive"/>.
         /// </summary>
         /// <param name="archive">The archive to associate the tag with.</param>
-        /// <param name="tag">The tag to associate with the archive.</param>
+        /// <param name="tags">The tags to associate with the archive.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>
         /// A <see cref="Task{TResult}"/> representing the asynchronous operation, containing
         /// the <see cref="Result"/> of the operation.
         /// </returns>
-        /// <exception cref="ArgumentNullException">If <paramref name="archive"/> is null.</exception>
+        /// <exception cref="ArgumentNullException">If <paramref name="archive"/> or <paramref name="tags"/> is null.</exception>
         /// <exception cref="ObjectDisposedException">If the store has been disposed.</exception>
         /// <exception cref="OperationCanceledException">If cancellation has been requested through the <paramref name="cancellationToken"/>.</exception>
-        public Task<Result> AddTagAsync(Archive archive, string tag, CancellationToken cancellationToken = default(CancellationToken))
+        public async Task<Result> AddTagsAsync(Archive archive, IEnumerable<string> tags, CancellationToken cancellationToken = default(CancellationToken))
         {
             ThrowIfDisposed();
             cancellationToken.ThrowIfCancellationRequested();
@@ -348,20 +371,30 @@ namespace Archi.Models.EF
                 throw new ArgumentNullException(nameof(archive));
             }
 
-            if (string.IsNullOrWhiteSpace(tag))
+            if (tags == null)
             {
-                return Task.FromResult(Result.Failed(ErrorDescriber.TagMustNotBeNullOrEmpty));
+                throw new ArgumentNullException(nameof(tags));
             }
 
-            archive.Tags.Add(new ArchiveTag
-            {
-                Tag = new Tag
-                {
-                    Name = tag
-                }
-            });
+            var currentTags = await Context
+                .Set<ArchiveTag>()
+                .Where(a => a.ArchiveId == archive.Id)
+                .Select(a => a.Tag.Name)
+                .ToListAsync(cancellationToken);
 
-            return Task.FromResult(Result.Success);
+            foreach (var tag in tags.Where(t => !currentTags.Contains(t)))
+            {
+                Context.Add(new ArchiveTag
+                {
+                    ArchiveId = archive.Id,
+                    Tag = new Tag
+                    {
+                        Name = tag
+                    }
+                });
+            }
+
+            return Result.Success;
         }
 
         /// <summary>
@@ -399,6 +432,13 @@ namespace Archi.Models.EF
             return Result.Success;
         }
 
+        /// <summary>
+        /// Returns the file cor
+        /// </summary>
+        /// <param name="archive"></param>
+        /// <param name="fileName"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
         public async Task<Maybe<IFileInfo>> GetFileByNameAsync(Archive archive, string fileName, CancellationToken cancellationToken = default(CancellationToken))
         {
             ThrowIfDisposed();
@@ -420,6 +460,34 @@ namespace Archi.Models.EF
                 .Create(file)
                 .Coalesce(f => new FileInfo(f.FileName, f.ContentType))
                 .Cast<IFileInfo>();
+        }
+
+        public async Task<Result> RemoveFileAsync(Archive archive, IFileInfo file, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ThrowIfDisposed();
+
+            if (archive == null)
+            {
+                throw new ArgumentNullException(nameof(archive));
+            }
+
+            if (file == null)
+            {
+                throw new ArgumentNullException(nameof(file));
+            }
+
+            var dbFile = await Context
+                .Set<ArchiveFile>()
+                .FirstOrDefaultAsync(a => a.ArchiveId == archive.Id && a.File.FileName == file.FileName,
+                    cancellationToken);
+
+            if (dbFile != null)
+            {
+                Context.Remove(dbFile);
+            }
+
+            return Result.Success;
         }
     }
 }

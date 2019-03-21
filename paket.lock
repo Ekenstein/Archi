@@ -180,6 +180,6 @@ NUGET
       System.Runtime (>= 4.3) - restriction: || (&& (< monoandroid) (< monotouch) (< net45) (>= netstandard1.3) (< win8) (< wpa81) (< xamarinios) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)) (&& (< monoandroid) (< net45) (>= netstandard1.0) (< netstandard1.3) (< win8) (< wp8) (< wpa81)) (< portable-net45+win8+wp8+wpa81)
 GITHUB
   remote: Ekenstein/Fileicsh
-    FULLPROJECT (66da1e4f1f655b64e34ecfa7cd5359f418d706f9)
+    FULLPROJECT (245dd2eea362a16a8fde2df24417c399d8ca9206)
   remote: Ekenstein/Monadicsh
     FULLPROJECT (aea63ba54854e8a72e02810ce819c09f240fa18e)

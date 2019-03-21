@@ -52,5 +52,17 @@ namespace Archi.Core
         /// A <see cref="Task{TResult}"/> containing the <see cref="Result"/> of operation.
         /// </returns>
         Task<Result> AddFileAsync(TArchive archive, IFileInfo file, CancellationToken cancellationToken = default(CancellationToken));
+
+        /// <summary>
+        /// Removes the given <paramref name="file"/> from the <paramref name="archive"/>.
+        /// </summary>
+        /// <param name="archive">The archive to remove the file from.</param>
+        /// <param name="file">The file to be removed.</param>
+        /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
+        /// <returns>
+        /// A <see cref="Task{TResult}"/> representing the asynchronous operation, containing
+        /// the <see cref="Result"/> of the operation.
+        /// </returns>
+        Task<Result> RemoveFileAsync(TArchive archive, IFileInfo file, CancellationToken cancellationToken = default(CancellationToken));
     }
 }
